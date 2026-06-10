@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>8-BIT FUTURISTIC SNAKE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background: #03050b;
+            font-family: 'Courier New', 'VT323', monospace;
+            overflow: hidden;
+            height: 100dvh;
+            width: 100vw;
+            transition: background 0.2s;
+        }
+
+        /* ТЕМЫ СКИНОВ (только цвета, без скруглений) */
+        body.skin-basic { --accent: #0ff; --accent-glow: #0ff; --accent-bg: rgba(0,255,255,0.15); --panel: #0a0f1e; }
+        body.skin-rare { --accent: #3c9eff; --accent-glow: #3c9eff; --accent-bg: rgba(60,158,255,0.15); --panel: #0a1428; }
+        body.skin-epic { --accent: #bc6ff9; --accent-glow: #bc6ff9; --accent-bg: rgba(188,111,249,0.15); --panel: #180c2a; }
+        body.skin-legend { --accent: #ffb347; --accent-glow: #ffaa33; --accent-bg: rgba(255,180,71,0.15); --panel: #2a1a08; }
+
+        /* ЭКРАНЫ */
+        .screen {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.2rem;
+            background: rgba(3,5,11,0.92);
+            backdrop-filter: blur(6px);
+            z-index: 20;
+            padding: 1.5rem;
+        }
+
+        .hidden { display: none !important; }
+
+        h1 {
+            font-size: clamp(3rem, 10vw, 5rem);
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+            color: var(--accent);
+            text-shadow: 0 0 10px var(--accent-glow);
+            letter-spacing: 6px;
+        }
+
+        h2 {
+            font-size: clamp(1.6rem, 6vw, 2rem);
+            color: var(--accent);
+            text-shadow: 0 0 5px var(--accent-glow);
+            border-left: 4px solid var(--accent);
+            padding-left: 12px;
+        }
+
+        button {
+            padding: 10px 24px;
+            background: #11161f;
+            border: 2px solid var(--accent);
+            border-radius: 4px;  /* 8-битный стиль, лёгкий намёк */
+            color: white;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.08s linear;
+            box-shadow: 0 0 6px var(--accent-glow);
+            min-width: 160px;
+        }
+
+        button:active {
+            transform: scale(0.96);
+            background: var(--accent);
+            color: black;
+            border-color: white;
+            box-shadow: 0 0 20px var(--accent-glow);
+        }
+
+        /* ИНВЕНТАРЬ (карточки) */
+        #invList {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 12px;
+            max-height: 55vh;
+            overflow-y: auto;
+            width: 100%;
+            max-width: 540px;
+        }
+
+        .skin-card {
+            background: #0f121c;
+            border: 2px solid var(--accent);
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            min-width: 130px;
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .skin-name {
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+
+        .skin-equip {
+            padding: 5px 12px;
+            min-width: auto;
+            font-size: 0.8rem;
+            background: transparent;
+            border-width: 1px;
+        }
+
+        .skin-equip.active-skin {
+            background: var(--accent);
+            color: black;
+            border-color: white;
+        }
+
+        .case-animation {
+            background: #0a0a14;
+            padding: 10px 20px;
+            border: 2px solid var(--accent);
+            color: var(--accent);
+            font-family: monospace;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        /* HUD во время игры (с рекордом) */
+        #hud {
+            position: fixed;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            display: flex;
+            justify-content: space-between;
+            background: rgba(0,0,0,0.75);
+            border: 2px solid var(--accent);
+            padding: 8px 16px;
+            z-index: 25;
+            font-family: monospace;
+            font-weight: bold;
+            font-size: 1rem;
+            backdrop-filter: blur(8px);
+            color: var(--accent);
+            text-shadow: 0 0 4px var(--accent-glow);
+        }
+
+        #hud div {
+            background: #00000055;
+            padding: 4px 12px;
+            border-left: 2px solid var(--accent);
+        }
+
+        /* ДЖОЙСТИК */
+        #controls {
+            position: fixed;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 25;
+        }
+
+        .row {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .ctrl-btn {
+            width: 70px;
+            height: 70px;
+            background: #000000aa;
+            border: 2px solid var(--accent);
+            color: var(--accent);
+            font-size: 2rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 0 12px var(--accent-glow);
+            border-radius: 4px; /* 8-бит квадрат */
+        }
+
+        .ctrl-btn:active {
+            background: var(--accent);
+            color: black;
+            transform: scale(0.92);
+        }
+
+        canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            display: none;
+            z-index: 1;
+            image-rendering: crisp-edges;
+            image-rendering: pixelated;
+        }
+
+        /* Настройки */
+        .setting-row {
+            width: 280px;
+            display: flex;
+            justify-content: space-between;
+            background: #0a0e16;
+            border: 1px solid var(--accent);
+            padding: 8px 16px;
+            margin: 6px;
+            font-family: monospace;
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .toggle-btn {
+            padding: 4px 12px;
+            min-width: auto;
+            background: #1e1e2e;
+            border: 1px solid gray;
+            color: white;
+            font-size: 0.7rem;
+        }
+
+        .toggle-btn.active {
+            background: var(--accent);
+            color: black;
+            border-color: white;
+        }
+    </style>
+</head>
+<body>
+
+<!-- МЕНЮ -->
+<div id="menu" class="screen">
+    <h1>//S6AKE</h1>
+    <button id="playBtn">▶ ЗАПУСК</button>
+    <button id="invBtn">📦 ИНВЕНТАРЬ</button>
+    <button id="shopBtn">🌀 КЕЙСЫ</button>
+    <button id="settingsBtn">⚙️ НАСТРОЙКИ</button>
+</div>
+
+<!-- ИНВЕНТАРЬ -->
+<div id="inv" class="screen hidden">
+    <h2>ИНВЕНТАРЬ</h2>
+    <div id="invList"></div>
+    <button id="backFromInv">← НАЗАД</button>
+</div>
+
+<!-- КЕЙСЫ -->
+<div id="shop" class="screen hidden">
+    <h2>КИБЕР-КЕЙСЫ</h2>
+    <button id="openCaseBtn">🔓 ОТКРЫТЬ (10 S6)</button>
+    <div id="caseLog" class="case-animation">СТАТУС: ОЖИДАНИЕ</div>
+    <button id="backFromShop">← НАЗАД</button>
+</div>
+
+<!-- НАСТРОЙКИ -->
+<div id="settings" class="screen hidden">
+    <h2>СИСТЕМА</h2>
+    <div class="setting-row">
+        <span>⚡ СКОРОСТЬ</span>
+        <div class="toggle-group" id="speedGroup">
+            <button class="toggle-btn" data-speed="0.7">МЕДЛ</button>
+            <button class="toggle-btn active" data-speed="1.0">НОРМ</button>
+            <button class="toggle-btn" data-speed="1.4">БЫСТР</button>
+        </div>
+    </div>
+    <div class="setting-row">
+        <span>🎮 ДЖОЙСТИК</span>
+        <div class="toggle-group" id="joystickGroup">
+            <button class="toggle-btn active" data-joystick="on">ВКЛ</button>
+            <button class="toggle-btn" data-joystick="off">ВЫКЛ</button>
+        </div>
+    </div>
+    <div class="setting-row">
+        <span>📳 ВИБРО</span>
+        <div class="toggle-group" id="vibroGroup">
+            <button class="toggle-btn active" data-vibro="on">ВКЛ</button>
+            <button class="toggle-btn" data-vibro="off">ВЫКЛ</button>
+        </div>
+    </div>
+    <div class="setting-row">
+        <span>🖥️ FPS</span>
+        <div class="toggle-group" id="fpsGroup">
+            <button class="toggle-btn" data-fps="15">15</button>
+            <button class="toggle-btn" data-fps="30">30</button>
+            <button class="toggle-btn active" data-fps="60">60</button>
+        </div>
+    </div>
+    <button id="backFromSettings">← НАЗАД</button>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameOverScreen" class="screen hidden">
+    <h2 style="color:#ff5e6e;">СБОЙ</h2>
+    <p class="pixel-font" style="font-size: 1.4rem;">ОЧКИ: <span id="finalScore">0</span></p>
+    <p class="pixel-font" id="recordDisplay">🏆 РЕКОРД: 0</p>
+    <button id="restartBtn">⟳ РЕСТАРТ</button>
+    <button id="toMenuBtn">🏠 МЕНЮ</button>
+</div>
+
+<!-- HUD с рекордом -->
+<div id="hud">
+    <div>S6: <span id="money">0</span></div>
+    <div>🍎 <span id="score">0</span></div>
+    <div>🏆 <span id="hudRecord">0</span></div>
+</div>
+
+<div id="controls">
+    <div class="row"><button class="ctrl-btn" data-dir="up" id="btnUp">▲</button></div>
+    <div class="row">
+        <button class="ctrl-btn" data-dir="left" id="btnLeft">◀</button>
+        <button class="ctrl-btn" data-dir="down" id="btnDown">▼</button>
+        <button class="ctrl-btn" data-dir="right" id="btnRight">▶</button>
+    </div>
+</div>
+
+<canvas id="game" width="500" height="500"></canvas>
+
+<script>
+    (function(){
+        // ------ DOM ------
+        const menu = document.getElementById('menu');
+        const invScreen = document.getElementById('inv');
+        const shopScreen = document.getElementById('shop');
+        const settingsScreen = document.getElementById('settings');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const hud = document.getElementById('hud');
+        const controlsDiv = document.getElementById('controls');
+        const canvas = document.getElementById('game');
+        const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false;
+
+        const moneySpan = document.getElementById('money');
+        const scoreSpan = document.getElementById('score');
+        const hudRecordSpan = document.getElementById('hudRecord');
+        const invListDiv = document.getElementById('invList');
+        const caseLog = document.getElementById('caseLog');
+        const finalScoreSpan = document.getElementById('finalScore');
+        const recordDisplaySpan = document.getElementById('recordDisplay');
+
+        // ------ ДАННЫЕ ------
+        let money = Number(localStorage.getItem('money')) || 250;   // много денег для теста кейсов
+        let inventory = JSON.parse(localStorage.getItem('inv') || '[]');
+        let record = Number(localStorage.getItem('record') || 0);
+        let equipped = localStorage.getItem('equip') || 'basic';
+
+        // СКИНЫ (8-бит стиль)
+        const skinCatalog = [
+            { id: 'basic', name: 'BASIC', color: '#0ff', glow: '#0ff', symbolUp: '▲', symbolDown: '▼', symbolLeft: '◀', symbolRight: '▶' },
+            { id: 'rare', name: 'RARE', color: '#3c9eff', glow: '#3c9eff', symbolUp: '⇧', symbolDown: '⇩', symbolLeft: '⇦', symbolRight: '⇨' },
+            { id: 'epic', name: 'EPIC', color: '#bc6ff9', glow: '#bc6ff9', symbolUp: '⬆', symbolDown: '⬇', symbolLeft: '⬅', symbolRight: '➡' },
+            { id: 'legend', name: 'LEGEND', color: '#ffb347', glow: '#ffb347', symbolUp: '⌃', symbolDown: '⌄', symbolLeft: '〈', symbolRight: '〉' }
+        ];
+
+        if (!inventory.length) {
+            inventory = skinCatalog.map(s => ({ ...s }));
+            localStorage.setItem('inv', JSON.stringify(inventory));
+        }
+
+        // настройки
+        let settings = {
+            speed: 1.0,
+            joystick: true,
+            vibration: true,
+            fps: 60
+        };
+        const saved = localStorage.getItem('s6settings');
+        if (saved) settings = { ...settings, ...JSON.parse(saved) };
+        function saveSettings() { localStorage.setItem('s6settings', JSON.stringify(settings)); }
+
+        // ------ ПРИМЕНЕНИЕ ТЕМЫ СКИНА ------
+        function applySkin(skinId) {
+            const skin = inventory.find(s => s.id === skinId) || skinCatalog[0];
+            document.body.className = `skin-${skin.id}`;
+            document.documentElement.style.setProperty('--accent', skin.color);
+            document.documentElement.style.setProperty('--accent-glow', skin.glow);
+            // обновляем символы на джойстике
+            document.getElementById('btnUp').innerText = skin.symbolUp;
+            document.getElementById('btnDown').innerText = skin.symbolDown;
+            document.getElementById('btnLeft').innerText = skin.symbolLeft;
+            document.getElementById('btnRight').innerText = skin.symbolRight;
+        }
+
+        // ------ ОТРИСОВКА ИНВЕНТАРЯ (мгновенное обновление)------
+        function renderInventory() {
+            invListDiv.innerHTML = '';
+            inventory.forEach(skin => {
+                const card = document.createElement('div');
+                card.className = 'skin-card';
+                const nameSpan = document.createElement('div');
+                nameSpan.className = 'skin-name';
+                nameSpan.innerText = skin.name;
+                const equipBtn = document.createElement('button');
+                equipBtn.innerText = (equipped === skin.id) ? '✓ ЭКИП.' : 'НАДЕТЬ';
+                equipBtn.className = 'skin-equip';
+                if (equipped === skin.id) equipBtn.classList.add('active-skin');
+                equipBtn.style.borderColor = skin.glow;
+                equipBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    equipped = skin.id;
+                    localStorage.setItem('equip', equipped);
+                    applySkin(equipped);
+                    renderInventory();   // перерисовка без перезагрузки
+                });
+                card.appendChild(nameSpan);
+                card.appendChild(equipBtn);
+                invListDiv.appendChild(card);
+            });
+        }
+
+        function refreshInvIfVisible() {
+            if (!invScreen.classList.contains('hidden')) renderInventory();
+        }
+
+        // ------ СОХРАНЕНИЕ ------
+        function saveFull() {
+            localStorage.setItem('money', money);
+            localStorage.setItem('inv', JSON.stringify(inventory));
+            localStorage.setItem('equip', equipped);
+            if (score > record) {
+                record = score;
+                localStorage.setItem('record', record);
+            }
+        }
+
+        function updateUI() {
+            moneySpan.innerText = money;
+            scoreSpan.innerText = score;
+            hudRecordSpan.innerText = record;
+        }
+
+        // ------ КЕЙСЫ (8-бит анимация) ------
+        function animateCaseLog(msg, color) {
+            caseLog.style.color = color;
+            caseLog.innerText = msg;
+            setTimeout(() => {
+                if (caseLog.innerText === msg) caseLog.innerText = "СТАТУС: ОЖИДАНИЕ";
+            }, 1700);
+        }
+
+        function openCase() {
+            if (money < 10) {
+                animateCaseLog("❌ НЕДОСТАТОЧНО S6", "#ff7777");
+                return;
+            }
+            money -= 10;
+            updateUI();
+            caseLog.innerText = "⟳ РАЗБЛОКИРОВКА...";
+            setTimeout(() => {
+                const isNewSkin = Math.random() < 0.48;
+                if (!isNewSkin) {
+                    const bonus = Math.floor(Math.random() * 30) + 10;
+                    money += bonus;
+                    animateCaseLog(`💰 +${bonus} S6`, "#ffcc44");
+                    if (settings.vibration) navigator.vibrate?.(20);
+                } else {
+                    const possible = skinCatalog[Math.floor(Math.random() * skinCatalog.length)];
+                    const already = inventory.some(s => s.id === possible.id);
+                    if (!already) {
+                        inventory.push({ ...possible });
+                        animateCaseLog(`🎁 НОВЫЙ: ${possible.name}`, possible.glow);
+                        refreshInvIfVisible();
+                    } else {
+                        const comp = Math.floor(Math.random() * 20) + 8;
+                        money += comp;
+                        animateCaseLog(`🔄 ПОВТОР +${comp} S6`, "#bbbbff");
+                    }
+                }
+                saveFull();
+                updateUI();
+                if (settings.vibration) navigator.vibrate?.(25);
+            }, 260);
+        }
+
+        // ------ ИГРОВАЯ ЛОГИКА (ПИКСЕЛИ, КВАДРАТЫ) ------
+        let snake = [], food = {x:0,y:0};
+        let dx = 20, dy = 0, nextDx = 20, nextDy = 0;
+        let score = 0;
+        let gameLoopId = null;
+        let lastRender = 0;
+        let gameSpeed = 100;
+        let gameActive = false;
+        let state = 'menu';
+
+        function calcGameSpeed() {
+            const frameInterval = 1000 / settings.fps;
+            return frameInterval / settings.speed;
+        }
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        function spawnValidFood() {
+            const cols = Math.max(1, Math.floor(canvas.width / 20));
+            const rows = Math.max(1, Math.floor(canvas.height / 20));
+            let free;
+            for(let i=0; i<2000; i++) {
+                const candidate = {
+                    x: Math.floor(Math.random() * cols) * 20,
+                    y: Math.floor(Math.random() * rows) * 20
+                };
+                if (!snake.some(seg => seg.x === candidate.x && seg.y === candidate.y)) {
+                    free = candidate;
+                    break;
+                }
+            }
+            if (!free) {
+                for(let y=0; y<rows; y++) {
+                    for(let x=0; x<cols; x++) {
+                        const cand = { x: x*20, y: y*20 };
+                        if (!snake.some(seg => seg.x === cand.x && seg.y === cand.y)) {
+                            free = cand;
+                            break;
+                        }
+                    }
+                    if(free) break;
+                }
+            }
+            return free || { x: 40, y: 40 };
+        }
+
+        function resetGame() {
+            const cols = Math.max(6, Math.floor(canvas.width / 20));
+            const rows = Math.max(6, Math.floor(canvas.height / 20));
+            const startX = Math.floor(cols/2)*20;
+            const startY = Math.floor(rows/2)*20;
+            snake = [{ x: startX, y: startY }];
+            dx = 20; dy = 0;
+            nextDx = 20; nextDy = 0;
+            score = 0;
+            updateUI();
+            food = spawnValidFood();
+            gameSpeed = calcGameSpeed();
+        }
+
+        // ОТРИСОВКА (только квадраты)
+        function draw() {
+            if (!canvas.width || !canvas.height) return;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const skin = inventory.find(s => s.id === equipped) || skinCatalog[0];
+            
+            // рисуем еду (пиксельный квадрат)
+            ctx.fillStyle = "#ff3a6f";
+            ctx.shadowBlur = 0;
+            ctx.fillRect(food.x, food.y, 20, 20);
+            ctx.fillStyle = "#ffaa88";
+            ctx.fillRect(food.x+6, food.y+6, 8, 8);
+            
+            // змейка квадратами
+            for(let i=0; i<snake.length; i++) {
+                const seg = snake[i];
+                ctx.fillStyle = skin.color;
+                ctx.shadowColor = skin.glow;
+                ctx.shadowBlur = 8;
+                ctx.fillRect(seg.x, seg.y, 20, 20);
+                // внутренний контраст
+                ctx.fillStyle = "#ffffff66";
+                ctx.fillRect(seg.x+4, seg.y+4, 12, 12);
+                if(i === 0) { // глаза
+                    ctx.fillStyle = "#ffffff";
+                    ctx.fillRect(seg.x+4, seg.y+4, 5, 5);
+                    ctx.fillRect(seg.x+11, seg.y+4, 5, 5);
+                    ctx.fillStyle = "#000000";
+                    ctx.fillRect(seg.x+5, seg.y+5, 3, 3);
+                    ctx.fillRect(seg.x+12, seg.y+5, 3, 3);
+                }
+            }
+            ctx.shadowBlur = 0;
+        }
+
+        function step() {
+            if (!gameActive) return;
+            dx = nextDx;
+            dy = nextDy;
+            const head = snake[0];
+            const newHead = { x: head.x + dx, y: head.y + dy };
+            // границы
+            if (newHead.x < 0 || newHead.x >= canvas.width || newHead.y < 0 || newHead.y >= canvas.height) {
+                gameOver();
+                return;
+            }
+            // столкновение
+            if (snake.some(seg => seg.x === newHead.x && seg.y === newHead.y)) {
+                gameOver();
+                return;
+            }
+            snake.unshift(newHead);
+            if (newHead.x === food.x && newHead.y === food.y) {
+                score++;
+                money++;
+                updateUI();
+                if (settings.vibration) navigator.vibrate?.(10);
+                food = spawnValidFood();
+            } else {
+                snake.pop();
+            }
+            draw();
+        }
+
+        function gameOver() {
+            if (!gameActive) return;
+            gameActive = false;
+            state = 'gameover';
+            if (score > record) {
+                record = score;
+                saveFull();
+                updateUI();
+            }
+            finalScoreSpan.innerText = score;
+            recordDisplaySpan.innerText = `🏆 РЕКОРД: ${record}`;
+            showScreen('gameover');
+            if (settings.vibration) navigator.vibrate?.([30,60,30]);
+            stopLoop();
+        }
+
+        function gameLoop(now) {
+            if (!gameActive) return;
+            if (now - lastRender >= gameSpeed) {
+                lastRender = now;
+                step();
+            }
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function startLoop() {
+            if (gameLoopId) cancelAnimationFrame(gameLoopId);
+            gameActive = true;
+            lastRender = performance.now();
+            gameLoopId = requestAnimationFrame(gameLoop);
+        }
+
+        function stopLoop() {
+            if (gameLoopId) {
+                cancelAnimationFrame(gameLoopId);
+                gameLoopId = null;
+            }
+            gameActive = false;
+        }
+
+        function startGame() {
+            stopLoop();
+            resizeCanvas();
+            resetGame();
+            state = 'game';
+            gameActive = true;
+            canvas.style.display = 'block';
+            hud.style.display = 'flex';
+            controlsDiv.style.display = settings.joystick ? 'flex' : 'none';
+            applySkin(equipped);
+            updateUI();
+            draw();
+            startLoop();
+            // скрываем все экраны
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+        }
+
+        function showScreen(name) {
+            stopLoop();
+            state = name;
+            canvas.style.display = 'none';
+            hud.style.display = 'none';
+            controlsDiv.style.display = 'none';
+            document.querySelectorAll('.screen').forEach(el => el.classList.add('hidden'));
+            if (name === 'menu') menu.classList.remove('hidden');
+            else if (name === 'inv') { invScreen.classList.remove('hidden'); renderInventory(); }
+            else if (name === 'shop') shopScreen.classList.remove('hidden');
+            else if (name === 'settings') { settingsScreen.classList.remove('hidden'); updateSettingsUI(); }
+            else if (name === 'gameover') gameOverScreen.classList.remove('hidden');
+        }
+
+        function backToMenu() {
+            showScreen('menu');
+        }
+
+        // УПРАВЛЕНИЕ
+        function setDirection(dir) {
+            if (!gameActive) return;
+            if (dir === 'up' && dy === 0) { nextDx = 0; nextDy = -20; }
+            else if (dir === 'down' && dy === 0) { nextDx = 0; nextDy = 20; }
+            else if (dir === 'left' && dx === 0) { nextDx = -20; nextDy = 0; }
+            else if (dir === 'right' && dx === 0) { nextDx = 20; nextDy = 0; }
+        }
+
+        document.querySelectorAll('.ctrl-btn').forEach(btn => {
+            btn.addEventListener('pointerdown', (e) => { e.preventDefault(); setDirection(btn.dataset.dir); });
+            btn.addEventListener('touchstart', (e) => { e.preventDefault(); setDirection(btn.dataset.dir); });
+        });
+        window.addEventListener('keydown', (e) => {
+            if (!gameActive) return;
+            const k = e.key;
+            if (k === 'ArrowUp' || k === 'w') setDirection('up');
+            else if (k === 'ArrowDown' || k === 's') setDirection('down');
+            else if (k === 'ArrowLeft' || k === 'a') setDirection('left');
+            else if (k === 'ArrowRight' || k === 'd') setDirection('right');
+        });
+
+        // свайпы
+        let touchStart = null;
+        canvas.addEventListener('touchstart', (e) => { e.preventDefault(); touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY }; });
+        canvas.addEventListener('touchend', (e) => {
+            if (!touchStart || !gameActive) return;
+            const dxs = e.changedTouches[0].clientX - touchStart.x;
+            const dys = e.changedTouches[0].clientY - touchStart.y;
+            if (Math.abs(dxs) < 20 && Math.abs(dys) < 20) return;
+            if (Math.abs(dxs) > Math.abs(dys)) setDirection(dxs > 0 ? 'right' : 'left');
+            else setDirection(dys > 0 ? 'down' : 'up');
+            touchStart = null;
+        });
+
+        // НАСТРОЙКИ UI
+        function updateSettingsUI() {
+            document.querySelectorAll('#speedGroup .toggle-btn').forEach(btn => btn.classList.toggle('active', parseFloat(btn.dataset.speed) === settings.speed));
+            document.querySelectorAll('#joystickGroup .toggle-btn').forEach(btn => btn.classList.toggle('active', (btn.dataset.joystick === 'on') === settings.joystick));
+            document.querySelectorAll('#vibroGroup .toggle-btn').forEach(btn => btn.classList.toggle('active', (btn.dataset.vibro === 'on') === settings.vibration));
+            document.querySelectorAll('#fpsGroup .toggle-btn').forEach(btn => btn.classList.toggle('active', parseInt(btn.dataset.fps) === settings.fps));
+        }
+
+        document.getElementById('speedGroup').addEventListener('click', (e) => { if(e.target.dataset.speed){ settings.speed = parseFloat(e.target.dataset.speed); saveSettings(); updateSettingsUI(); if(state==='game') gameSpeed = calcGameSpeed(); } });
+        document.getElementById('joystickGroup').addEventListener('click', (e) => { if(e.target.dataset.joystick){ settings.joystick = e.target.dataset.joystick === 'on'; saveSettings(); updateSettingsUI(); if(state==='game') controlsDiv.style.display = settings.joystick ? 'flex' : 'none'; } });
+        document.getElementById('vibroGroup').addEventListener('click', (e) => { if(e.target.dataset.vibro){ settings.vibration = e.target.dataset.vibro === 'on'; saveSettings(); updateSettingsUI(); } });
+        document.getElementById('fpsGroup').addEventListener('click', (e) => { if(e.target.dataset.fps){ settings.fps = parseInt(e.target.dataset.fps); saveSettings(); updateSettingsUI(); if(state==='game') gameSpeed = calcGameSpeed(); } });
+
+        // КНОПКИ МЕНЮ
+        document.getElementById('playBtn').addEventListener('click', startGame);
+        document.getElementById('invBtn').addEventListener('click', () => showScreen('inv'));
+        document.getElementById('shopBtn').addEventListener('click', () => showScreen('shop'));
+        document.getElementById('settingsBtn').addEventListener('click', () => showScreen('settings'));
+        document.getElementById('backFromInv').addEventListener('click', backToMenu);
+        document.getElementById('backFromShop').addEventListener('click', backToMenu);
+        document.getElementById('backFromSettings').addEventListener('click', backToMenu);
+        document.getElementById('openCaseBtn').addEventListener('click', openCase);
+        document.getElementById('restartBtn').addEventListener('click', startGame);
+        document.getElementById('toMenuBtn').addEventListener('click', backToMenu);
+
+        window.addEventListener('resize', () => { resizeCanvas(); if(state==='game') draw(); });
+        applySkin(equipped);
+        updateUI();
+        showScreen('menu');
+        resizeCanvas();
+        gameSpeed = calcGameSpeed();
+    })();
+</script>
+</body>
+</html>
